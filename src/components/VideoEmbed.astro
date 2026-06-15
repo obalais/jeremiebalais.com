@@ -1,0 +1,22 @@
+---
+interface Props {
+  provider: 'vimeo' | 'youtube';
+  id: string;
+  title?: string;
+}
+
+const { provider, id, title = '' } = Astro.props;
+const src =
+  provider === 'vimeo'
+    ? `https://player.vimeo.com/video/${id}?title=0&byline=0&portrait=0`
+    : `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1`;
+---
+
+<div class="video-frame">
+  <iframe
+    src={src}
+    title={title}
+    loading="lazy"
+    allow="autoplay; fullscreen; picture-in-picture"
+    allowfullscreen></iframe>
+</div>

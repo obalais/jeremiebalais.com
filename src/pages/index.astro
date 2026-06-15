@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import WorkCard from '../components/WorkCard.astro';
+import Filters from '../components/Filters.astro';
+import { getWorks, CATEGORY_ORDER } from '../lib/works';
+
+// Homepage = works: the landing page IS the project grid.
+const works = await getWorks();
+
+// Categories present, in canonical order.
+const present = new Set(works.flatMap((work) => work.categories));
+const categories = CATEGORY_ORDER.filter((category) => present.has(category));
+---
+
+<BaseLayout>
+  <section class="wrap section section--flush-top">
+    <Filters categories={categories} variant="text" />
+    <div class="works-grid">
+      {works.map((work) => <WorkCard work={work} />)}
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import VideoEmbed from '../components/VideoEmbed.astro';
+
+// The 2 real Gibbons Studio demoreels (YouTube).
+const reels = [
+  { label: 'Face A', id: 'jwQBX5FbGBw' },
+  { label: 'Face B', id: 'fYQSp4wfF-4' },
+];
+---
+
+<BaseLayout title="Demoreel">
+  <section class="wrap section">
+    <div class="reels">
+      {
+        reels.map((reel) => (
+          <div class="reel">
+            <p class="eyebrow reel__label">{reel.label}</p>
+            <VideoEmbed provider="youtube" id={reel.id} title={`Gibbons Studio — Demoreel ${reel.label}`} />
+          </div>
+        ))
+      }
+    </div>
+  </section>
+</BaseLayout>

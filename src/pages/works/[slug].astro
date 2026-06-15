@@ -1,0 +1,59 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import VideoEmbed from '../../components/VideoEmbed.astro';
+import Gallery from '../../components/Gallery.astro';
+import { getWorks } from '../../lib/works';
+
+export async function getStaticPaths() {
+  const works = await getWorks();
+  return works.map((work, index) => ({
+    params: { slug: work.slug },
+    props: {
+      work,
+      prev: works[index - 1] ?? null,
+      next: works[index + 1] ?? null,
+    },
+  }));
+}
+
+const { work, prev, next } = Astro.props;
+---
+
+<BaseLayout title={work.title} description={work.excerpt}>
+  <article class="wrap">
+    <div class="project-head">
+      <a class="backlink" href="/">← Works</a>
+      <h1>{work.title}</h1>
+      <div class="badges">
+        {work.categories.map((category) => <span class="badge">{category}</span>)}
+        <span class="badge">{work.year}</span>
+        {work.client && <span class="badge">{work.client}</span>}
+      </div>
+    </div>
+
+    {work.video && <VideoEmbed provider={work.video.provider} id={work.video.id} title={work.title} />}
+
+    <div class="project-body">
+      <div class="prose" set:html={work.descriptionHtml || `<p>${work.description}</p>`}></div>
+      <aside class="credits">
+        <dl>
+          {
+            work.credits.map((credit) => (
+              <div class="row">
+                <dt>{credit.role}</dt>
+                <dd>{credit.name}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </aside>
+    </div>
+
+    {work.gallery && work.gallery.length > 0 && <Gallery images={work.gallery} title={work.title} />}
+
+    <nav class="prevnext" aria-label="Navigation entre projets">
+      {prev ? <a href={`/works/${prev.slug}`}>← {prev.title}</a> : <span></span>}
+      {next ? <a href={`/works/${next.slug}`}>{next.title} →</a> : <span></span>}
+    </nav>
+  </article>
+</BaseLayout>

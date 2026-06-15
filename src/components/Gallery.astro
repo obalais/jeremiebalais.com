@@ -1,0 +1,80 @@
+---
+interface Props {
+  images: string[];
+  title?: string;
+}
+
+const { images, title = '' } = Astro.props;
+---
+
+<section class="gallery-block" aria-label="Galerie">
+  <div class="gallery" data-gallery>
+    {
+      images.map((src, index) => (
+        <button class="gallery__item" type="button" data-index={index} aria-label={`Voir l'image ${index + 1}`}>
+          <img src={src} alt={`${title} — image ${index + 1}`} loading="lazy" />
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="lightbox" data-lightbox aria-hidden="true" role="dialog" aria-modal="true" aria-label="Galerie">
+    <button class="lightbox__close" type="button" data-close aria-label="Fermer">×</button>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" data-prev aria-label="Précédent">‹</button>
+    <img class="lightbox__img" data-lightbox-img src="" alt="" />
+    <button class="lightbox__nav lightbox__nav--next" type="button" data-next aria-label="Suivant">›</button>
+    <p class="lightbox__count" data-count></p>
+  </div>
+</section>
+
+<script>
+  const grid = document.querySelector<HTMLElement>('[data-gallery]');
+  const lightbox = document.querySelector<HTMLElement>('[data-lightbox]');
+
+  if (grid && lightbox) {
+    const images = [...grid.querySelectorAll<HTMLImageElement>('.gallery__item img')].map(
+      (img) => img.getAttribute('src') || ''
+    );
+    const imgEl = lightbox.querySelector<HTMLImageElement>('[data-lightbox-img]')!;
+    const countEl = lightbox.querySelector<HTMLElement>('[data-count]')!;
+    let current = 0;
+
+    const render = () => {
+      imgEl.src = images[current];
+      countEl.textContent = `${current + 1} / ${images.length}`;
+    };
+    const open = (index: number) => {
+      current = index;
+      render();
+      lightbox.classList.add('is-open');
+      lightbox.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    };
+    const close = () => {
+      lightbox.classList.remove('is-open');
+      lightbox.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    };
+    const go = (step: number) => {
+      current = (current + step + images.length) % images.length;
+      render();
+    };
+
+    grid.addEventListener('click', (event) => {
+      const item = (event.target as HTMLElement).closest<HTMLElement>('.gallery__item');
+      if (item) open(Number(item.dataset.index));
+    });
+    lightbox.querySelector('[data-close]')!.addEventListener('click', close);
+    lightbox.querySelector('[data-prev]')!.addEventListener('click', () => go(-1));
+    lightbox.querySelector('[data-next]')!.addEventListener('click', () => go(1));
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) close();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (!lightbox.classList.contains('is-open')) return;
+      if (event.key === 'Escape') close();
+      if (event.key === 'ArrowLeft') go(-1);
+      if (event.key === 'ArrowRight') go(1);
+    });
+  }
+</script>

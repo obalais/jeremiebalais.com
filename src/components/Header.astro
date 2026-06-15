@@ -1,0 +1,64 @@
+---
+import { nav } from '../lib/site';
+
+const path = Astro.url.pathname;
+const isEn = path === '/en' || path.startsWith('/en/');
+const base = isEn ? '/en' : '';
+
+// nav item href in the current locale
+const navHref = (href: string) => (href === '/' ? base || '/' : base + href);
+
+const isActive = (href: string) => {
+  const target = navHref(href);
+  if (href === '/') return path === (base || '/') || path.startsWith(base + '/works');
+  return path === target || path.startsWith(target + '/');
+};
+
+// language toggle: same page in the other locale
+const frHref = isEn ? path.replace(/^\/en/, '') || '/' : path;
+const enHref = isEn ? path : '/en' + (path === '/' ? '' : path);
+
+const left = nav.slice(0, 2);
+const right = nav.slice(2);
+---
+
+<header class="site-header">
+  <div class="wrap site-header__inner">
+    <nav class="nav nav--left" aria-label="Navigation">
+      {
+        left.map((item) => (
+          <a href={navHref(item.href)} aria-current={isActive(item.href) ? 'page' : undefined}>
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <a class="brand" href={base || '/'} aria-label="Gibbons Studio, accueil">
+      <img
+        class="brand__logo"
+        src="/logo2.png"
+        alt="Gibbons Studio"
+        width="120"
+        height="120"
+        onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'brand__text',textContent:'Gibbons Studio'}))"
+      />
+    </a>
+
+    <nav class="nav nav--right" aria-label="Navigation secondaire">
+      {
+        right.map((item) => (
+          <a href={navHref(item.href)} aria-current={isActive(item.href) ? 'page' : undefined}>
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <span class="lang lang--corner" aria-label="Langue">
+      <a href={frHref} aria-current={!isEn ? 'true' : undefined}>FR</a>
+      <span>/</span>
+      <a href={enHref} aria-current={isEn ? 'true' : undefined}>EN</a>
+    </span>
+  </div>
+</header>

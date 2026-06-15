@@ -1,0 +1,52 @@
+---
+import { categoryLabel, type Locale } from '../lib/works';
+
+interface Props {
+  categories: string[];
+  variant?: 'pills' | 'text' | 'tabs';
+  allLabel?: string;
+  lang?: Locale;
+}
+
+const { categories, variant = 'pills', allLabel = 'Tous', lang = 'fr' } = Astro.props;
+// data-filter keeps the FR value (used for filtering); only the displayed label is translated.
+const label = (category: string) => categoryLabel(category, lang);
+---
+
+<div
+  class={`filters filters--${variant}`}
+  role="group"
+  aria-label="Filtrer par type de film"
+>
+  <button class="filter is-active" type="button" data-filter="all">
+    <span class="filter__label" data-text={allLabel}>{allLabel}</span>
+  </button>
+  {
+    categories.map((category) => (
+      <button class="filter" type="button" data-filter={category}>
+        <span class="filter__label" data-text={label(category)}>
+          {label(category)}
+        </span>
+      </button>
+    ))
+  }
+</div>
+
+<script>
+  const bar = document.querySelector<HTMLElement>('.filters');
+  if (bar) {
+    const buttons = bar.querySelectorAll<HTMLButtonElement>('.filter');
+    const cards = document.querySelectorAll<HTMLElement>('.work-card');
+    bar.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.filter');
+      if (!button) return;
+      buttons.forEach((other) => other.classList.toggle('is-active', other === button));
+      const filter = button.dataset.filter;
+      cards.forEach((card) => {
+        const cats = (card.dataset.categories || '').split('|');
+        const visible = filter === 'all' || cats.includes(filter || '');
+        card.classList.toggle('is-hidden', !visible);
+      });
+    });
+  }
+</script>

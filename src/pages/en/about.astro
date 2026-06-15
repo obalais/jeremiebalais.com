@@ -1,0 +1,33 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAbout } from '../../lib/works';
+
+const { bodyHtml, portrait, portraitAlt } = await getAbout('en');
+// Storyblok image service: resize + webp on the fly.
+const img = (w: number) => `${portrait}/m/${w}x0/filters:format(webp)`;
+---
+
+<BaseLayout title="About" description="Jérémie Balais, animator and director. Gibbons Studio.">
+  <section class="wrap section">
+    <div class="about">
+      <p class="eyebrow">About</p>
+      <div class="about-grid">
+        <div class="about-grid__text">
+          <div class="prose" set:html={bodyHtml}></div>
+          <p class="about-cta"><a class="btn" href="/en/contact">Let's work together</a></p>
+        </div>
+        <div class="about-grid__media">
+          <img
+            src={img(900)}
+            srcset={`${img(400)} 400w, ${img(600)} 600w, ${img(900)} 900w, ${img(1200)} 1200w`}
+            sizes="(max-width: 800px) 90vw, 40vw"
+            alt={portraitAlt}
+            width="2268"
+            height="4032"
+            loading="eager"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

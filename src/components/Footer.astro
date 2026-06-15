@@ -1,0 +1,30 @@
+---
+import { getSettings } from '../lib/site';
+const year = 2026;
+const path = Astro.url.pathname;
+const isEn = path === '/en' || path.startsWith('/en/');
+const base = isEn ? '/en' : '';
+const settings = await getSettings(isEn ? 'en' : 'fr');
+---
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="site-footer__grid">
+      <div>
+        <div class="site-footer__brand">{settings.name}</div>
+        <p style="max-width: 32ch; margin-top: 0.75rem; color: var(--ink-soft);">
+          {settings.tagline}
+        </p>
+      </div>
+
+      <div class="site-footer__links">
+        {settings.social.map((s) => <a href={s.href}>{s.label}</a>)}
+        <a href={`${base}/contact`}>Contact</a>
+      </div>
+    </div>
+
+    <div class="site-footer__bottom">
+      <span>© {year} {settings.name} · Jérémie Balais</span>
+    </div>
+  </div>
+</footer>

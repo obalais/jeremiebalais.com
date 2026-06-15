@@ -1,0 +1,89 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getSettings } from '../../lib/site';
+
+const settings = await getSettings('en');
+
+const formEndpoint = 'https://api.web3forms.com/submit';
+// Read at build time (frontmatter); injected into the inline script via define:vars.
+const accessKey = import.meta.env.PUBLIC_WEB3FORMS_KEY;
+---
+
+<BaseLayout title="Contact">
+  <section class="wrap section">
+    <p class="eyebrow">Contact</p>
+    <h2 style="font-size: var(--step-2); margin-top: 1rem; max-width: 16ch;">
+      Got a project in mind? Let's talk.
+    </h2>
+
+    <div class="project-body" style="padding-top: 3rem;">
+      <form id="contact-form" novalidate>
+        <input
+          type="checkbox"
+          name="botcheck"
+          tabindex="-1"
+          autocomplete="off"
+          style="position:absolute;left:-9999px"
+          aria-hidden="true"
+        />
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required />
+        </div>
+        <div class="field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+        </div>
+        <button class="btn" type="submit">Send</button>
+        <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+      </form>
+
+      <aside>
+        <p class="eyebrow">Direct</p>
+        <p style="margin-top: 0.75rem;">
+          <a href={`mailto:${settings.email}`}>{settings.email}</a>
+        </p>
+        <p style="margin-top: 1.5rem;" class="eyebrow">Based in</p>
+        <p style="margin-top: 0.75rem; color: var(--ink-soft);">{settings.location}</p>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>
+
+<script define:vars={{ formEndpoint, accessKey }}>
+  const form = document.getElementById('contact-form');
+  const status = document.getElementById('form-status');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!accessKey) {
+      status.textContent = 'Form not configured yet (PUBLIC_WEB3FORMS_KEY missing).';
+      status.dataset.state = 'error';
+      return;
+    }
+    const data = Object.fromEntries(new FormData(form).entries());
+    if (data.botcheck) return;
+    status.textContent = 'Sending...';
+    status.dataset.state = 'pending';
+    try {
+      const response = await fetch(formEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ access_key: accessKey, subject: 'New message via gibbonsstudio.net', ...data }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        status.textContent = 'Thanks, message sent. I will get back to you soon.';
+        status.dataset.state = 'success';
+        form.reset();
+      } else throw new Error(result.message || 'Error');
+    } catch (error) {
+      status.textContent = 'Oops, sending failed. Try again or email me directly.';
+      status.dataset.state = 'error';
+    }
+  });
+</script>

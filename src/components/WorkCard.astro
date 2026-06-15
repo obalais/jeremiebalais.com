@@ -1,0 +1,234 @@
+---
+import type { Work } from '../lib/works';
+
+interface Props {
+  work: Work;
+  base?: string; // locale prefix ('' for fr, '/en' for english)
+}
+
+const { work, base = '' } = Astro.props;
+
+// Static image by default. The CMS `hover` field decides what shows on hover:
+// 'auto' = mp4 > embed > second image, 'image'/'video' force one, 'none' disables it.
+const mode = work.hover ?? 'auto';
+const wantsVideo = mode === 'auto' || mode === 'video';
+const wantsImage = mode === 'auto' || mode === 'image';
+const hasHoverVideo = wantsVideo && Boolean(work.previewVideo);
+const hasHoverEmbed = wantsVideo && !hasHoverVideo && Boolean(work.video);
+const hasHoverImage =
+  wantsImage &&
+  !hasHoverVideo &&
+  !hasHoverEmbed &&
+  Boolean(work.hoverImage) &&
+  work.hoverImage !== work.thumbnail;
+
+// Background embed: muted, looping, no UI, starts at +10s.
+function hoverEmbedUrl(video: NonNullable<Work['video']>): string {
+  if (video.provider === 'vimeo') {
+    return `https://player.vimeo.com/video/${video.id}?background=1&autoplay=1&loop=1&muted=1#t=10s`;
+  }
+  // No loop/playlist params: they trigger YouTube's playlist control overlay
+  // (prev/pause/next). We loop manually via the JS API on the "ended" event.
+  const p = new URLSearchParams({
+    autoplay: '1', mute: '1', controls: '0',
+    modestbranding: '1', playsinline: '1', rel: '0', start: '10',
+    disablekb: '1', fs: '0', iv_load_policy: '3', showinfo: '0', cc_load_policy: '0',
+    // enablejsapi lets us listen for the "playing"/"ended" states.
+    enablejsapi: '1',
+  });
+  return `https://www.youtube.com/embed/${video.id}?${p.toString()}`;
+}
+---
+
+<a class="work-card" href={`${base}/works/${work.slug}`} data-categories={work.categories.join('|')}>
+  <div class="work-card__media">
+    <img
+      class="work-card__img work-card__img--base"
+      src={work.thumbnail}
+      alt={work.title}
+      loading="lazy"
+    />
+
+    {
+      hasHoverVideo && (
+        <video
+          class="work-card__hovermedia work-card__hovervideo"
+          src={work.previewVideo}
+          poster={work.thumbnail}
+          muted
+          loop
+          playsinline
+          preload="auto"
+          tabindex="-1"
+          data-start="10"
+        />
+      )
+    }
+
+    {
+      hasHoverEmbed && work.video && (
+        <iframe
+          class={`work-card__hovermedia work-card__hoveriframe work-card__hoveriframe--${work.video.provider}`}
+          data-src={hoverEmbedUrl(work.video)}
+          title={work.title}
+          loading="lazy"
+          tabindex="-1"
+          allow="autoplay; fullscreen; picture-in-picture"
+        />
+      )
+    }
+
+    {
+      hasHoverImage && (
+        <img
+          class="work-card__hovermedia work-card__img--hover"
+          src={work.hoverImage}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+        />
+      )
+    }
+  </div>
+  <div class="work-card__meta">
+    <span class="work-card__title">{work.title}</span>
+    <span class="work-card__year">{work.year}</span>
+  </div>
+</a>
+
+<script>
+  // Hover preview. To make it feel instant, the embed of every on-screen card is
+  // warmed up via IntersectionObserver: it loads and autoplays muted but hidden,
+  // so a hover only has to reveal the already-running frame. The media shows only
+  // once it truly plays, so the poster covers any cold-load black frame, and
+  // off-screen cards are unloaded to save resources.
+  const finePointer = window.matchMedia('(pointer: fine)').matches;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const connection = (navigator as any).connection;
+  const canPrewarm = finePointer && !reducedMotion && !(connection && connection.saveData);
+
+  document.querySelectorAll<HTMLElement>('.work-card').forEach((card) => {
+    const video = card.querySelector<HTMLVideoElement>('.work-card__hovervideo');
+    const iframe = card.querySelector<HTMLIFrameElement>('.work-card__hoveriframe');
+
+    let hovering = false;
+    let hasPlayed = false;
+    let backstop: ReturnType<typeof setTimeout> | undefined;
+
+    const reveal = () => {
+      if (hovering) card.classList.add('is-playing');
+    };
+    const clearBackstop = () => {
+      if (backstop) clearTimeout(backstop);
+      backstop = undefined;
+    };
+
+    if (video) {
+      const start = Number(video.dataset.start) || 0;
+      const seekStart = () => {
+        try {
+          if (video.currentTime < start || video.currentTime > start + 30) video.currentTime = start;
+        } catch {}
+      };
+      video.addEventListener('playing', () => {
+        hasPlayed = true;
+        reveal();
+      });
+      card.addEventListener('mouseenter', () => {
+        hovering = true;
+        seekStart();
+        video.play().catch(() => {});
+        if (hasPlayed) reveal();
+      });
+      card.addEventListener('mouseleave', () => {
+        hovering = false;
+        video.pause();
+        card.classList.remove('is-playing');
+      });
+      return;
+    }
+
+    if (!iframe) return;
+
+    const isYouTube = iframe.classList.contains('work-card__hoveriframe--youtube');
+    const post = (msg: object) => iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
+
+    const load = () => {
+      if (iframe.getAttribute('src')) return;
+      // YouTube only emits events after a "listening" handshake post-load.
+      iframe.addEventListener('load', () => isYouTube && post({ event: 'listening', channel: 'widget' }), { once: true });
+      iframe.src = iframe.dataset.src || '';
+    };
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== iframe.contentWindow) return;
+      let data: any = event.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          return;
+        }
+      }
+      if (!data || typeof data !== 'object') return;
+
+      if (isYouTube) {
+        const state =
+          data.event === 'onStateChange'
+            ? data.info
+            : data.event === 'infoDelivery' && data.info
+              ? data.info.playerState
+              : undefined;
+        if (state === 1) {
+          hasPlayed = true;
+          reveal();
+        } else if (state === 0) {
+          // Loop by hand: a playlist param loops natively but adds YouTube's
+          // prev/pause/next overlay, so we re-seek to the start instead.
+          post({ event: 'command', func: 'seekTo', args: [10, true] });
+          post({ event: 'command', func: 'playVideo', args: [] });
+        }
+      } else if (data.event === 'ready') {
+        ['play', 'playing', 'timeupdate'].forEach((value) => post({ method: 'addEventListener', value }));
+      } else if (data.event === 'play' || data.event === 'playing' || data.event === 'timeupdate') {
+        hasPlayed = true;
+        reveal();
+      }
+    });
+
+    // The embed autoplays muted as soon as it loads, so a hover never issues a play
+    // command — that would make YouTube flash its center play/pause overlay. On-screen
+    // embeds keep playing hidden; a hover just reveals the already-running frame.
+    card.addEventListener('mouseenter', () => {
+      hovering = true;
+      load();
+      if (hasPlayed) reveal();
+      else {
+        clearBackstop();
+        backstop = setTimeout(reveal, 1500);
+      }
+    });
+    card.addEventListener('mouseleave', () => {
+      hovering = false;
+      clearBackstop();
+      card.classList.remove('is-playing');
+    });
+
+    if (canPrewarm) {
+      // Load each embed once and keep it: reloading would replay YouTube's start
+      // indicator on every scroll-back, so we warm it a single time.
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              load();
+              observer.unobserve(entry.target);
+            }
+          }
+        },
+        { rootMargin: '200px' }
+      );
+      observer.observe(card);
+    }
+  });
+</script>

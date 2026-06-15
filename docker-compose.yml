@@ -1,0 +1,23 @@
+# Fully containerized dev workflow.
+#   docker compose up        -> dev server on http://localhost:4321
+#   docker compose run --rm web npm run build   -> static build into dist/
+#
+# Source code is bind-mounted. node_modules lives in a named volume, so it
+# NEVER lands on the host machine.
+services:
+  web:
+    build: .
+    ports:
+      - "4321:4321"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    environment:
+      # Storyblok: set STORYBLOK_TOKEN in a .env file at the root.
+      - STORYBLOK_TOKEN=${STORYBLOK_TOKEN:-}
+      # Local preview shows drafts; prod defaults to published.
+      - STORYBLOK_VERSION=${STORYBLOK_VERSION:-draft}
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  node_modules:
